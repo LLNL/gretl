@@ -1,3 +1,13 @@
+// Copyright (c) Lawrence Livermore National Security, LLC and
+// other Gretl Project Developers. See the top-level LICENSE file for
+// details.
+//
+// SPDX-License-Identifier: (BSD-3-Clause)
+
+/**
+ * @file double_state.hpp
+ */
+
 #pragma once
 
 #include "vector_state.hpp"

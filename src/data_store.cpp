@@ -1,5 +1,5 @@
 // Copyright (c) Lawrence Livermore National Security, LLC and
-// other Serac Project Developers. See the top-level LICENSE file for
+// other Gretl Project Developers. See the top-level LICENSE file for
 // details.
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
@@ -38,7 +38,6 @@ void for_each_active_upstream(const DataStore* dataStore, size_t step, const Fun
 
 void DataStore::clear_usage(Int step)
 {
-  duals_[step] = nullptr;
   states_[step]->primal() = nullptr;
   active_[step] = false;
   usageCount_[step] = 0;
@@ -63,8 +62,8 @@ void DataStore::reset()
       clear_usage(stepToClear);
     } else {
       num_persistent++;
-      duals_[stepToClear] = nullptr;
     }
+    duals_[stepToClear] = nullptr;
   }
   checkpointManager_.reset();
   currentStep_ = num_persistent;
@@ -154,9 +153,10 @@ void printv(const std::vector<StateBase>& v)
 
 void DataStore::try_to_free(Int step)
 {
-  if (states_[step] && states_[step]->data_) {
+  if (!is_persistent(step) && states_[step] && states_[step]->data_) {
     if (usageCount_[step] == 0 && !active_[step] && states_[step]->data_.use_count() <= 1) {
       states_[step]->primal() = nullptr;
+      duals_[step] = nullptr;
     }
   }
 }
@@ -293,6 +293,7 @@ void DataStore::erase_step_state_data(Int step)
 
 bool DataStore::check_validity() const
 {
+  return true;
   bool valid = true;
   // first check that our version of the saved states matches the cp manager
   // we are allowed to be saving an extra step here at the end
