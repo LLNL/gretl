@@ -8,9 +8,9 @@
 #include <cmath>
 #include <stdio.h>
 #include <iostream>
-#include "serac/gretl/vector_state.hpp"
-#include "serac/gretl/data_store.hpp"
-#include "serac/gretl/test_utils.hpp"
+#include "vector_state.hpp"
+#include "data_store.hpp"
+#include "test_utils.hpp"
 #include "gtest/gtest.h"
 
 using gretl::print;

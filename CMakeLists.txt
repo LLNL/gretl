@@ -1,47 +1,32 @@
 # Copyright (c) Lawrence Livermore National Security, LLC and
-# other Serac Project Developers. See the top-level LICENSE file for
+# other Gretl Project Developers. See the top-level LICENSE file for
 # details.
 #
 # SPDX-License-Identifier: (BSD-3-Clause)
 
-set(serac_gretl_sources
-      data_store.cpp
-      state_base.cpp
-      vector_state.cpp
-    )
+cmake_minimum_required(VERSION 3.16)
+project(gretl LANGUAGES CXX)
 
-set(serac_gretl_headers
-      checkpoint.hpp
-      data_store.hpp
-      test_utils.hpp
-      state_base.hpp
-      state.hpp
-      create_state.hpp
-      upstream_state.hpp
-      double_state.hpp
-      vector_state.hpp
-      print_utils.hpp
-    )
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 
-blt_add_library(
-    NAME        serac_gretl
-    SOURCES     ${serac_gretl_sources}
-    HEADERS     ${serac_gretl_headers}
-    )
+file(GLOB_RECURSE cpp_sources 
+  ${PROJECT_SOURCE_DIR}/src/*.cpp
+  ${PROJECT_SOURCE_DIR}/src/*.hpp)
 
-target_include_directories(serac_gretl PUBLIC 
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../..>
-    $<INSTALL_INTERFACE:include>
-    )
+  
+add_library(gretl ${cpp_sources})
 
-install(FILES ${serac_gretl_headers} DESTINATION include/serac/gretl )
+target_include_directories(gretl PUBLIC ${PROJECT_SOURCE_DIR}/src)
 
-install(TARGETS              serac_gretl
-        EXPORT               serac-targets
-        DESTINATION          lib
-        )
 
-if(SERAC_ENABLE_TESTS)
-    add_subdirectory(tests)
-endif()   
-    
+if (gretl_ENABLE_ASAN)
+  add_link_options(-fsanitize=address)
+  add_compile_options(-fsanitize=address)
+endif()
+
+if (gretl_ENABLE_TESTING)
+  add_subdirectory(tests)
+endif()
+
+
