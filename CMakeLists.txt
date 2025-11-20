@@ -20,13 +20,13 @@ add_library(gretl ${cpp_sources})
 target_include_directories(gretl PUBLIC ${PROJECT_SOURCE_DIR}/src)
 
 
-if (gretl_ENABLE_ASAN)
+if (GRETL_ENABLE_ASAN)
   add_link_options(-fsanitize=address)
   add_compile_options(-fsanitize=address)
 endif()
 
-if (gretl_ENABLE_TESTING)
+if (GRETL_ENABLE_TESTING)
+  enable_testing()
   add_subdirectory(tests)
 endif()
-
 

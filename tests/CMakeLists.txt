@@ -4,8 +4,6 @@
 #
 # SPDX-License-Identifier: (BSD-3-Clause)
 
-enable_testing()
-
 include(FetchContent)
 FetchContent_Declare(
   googletest
@@ -23,8 +21,9 @@ foreach(filename ${cpp_tests})
 
   add_executable(${testname} ${filename})
   target_link_libraries(${testname} PUBLIC ${CMAKE_PROJECT_NAME} GTest::gtest_main)
-  #target_precompile_headers(${testname} REUSE_FROM pch)
 
-  add_test(${testname} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${testname})		
+  add_test(${testname} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${testname})
 
 endforeach(filename ${cpp_tests})
+
+
