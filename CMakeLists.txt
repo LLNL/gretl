@@ -16,17 +16,24 @@ file(GLOB_RECURSE cpp_sources
   
 add_library(gretl ${cpp_sources})
 
-target_include_directories(gretl PUBLIC ${PROJECT_SOURCE_DIR}/src)
+target_include_directories(gretl PUBLIC
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+    $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+    )
 
 file(GLOB_RECURSE gretl_headers 
   ${PROJECT_SOURCE_DIR}/src/*.hpp)
 
-#install(
-#  TARGETS     gretl
-#  EXPORT      gretl-targets
-#  DESTINATION lib)
+# Specify public headers for the library
+set_target_properties(gretl PROPERTIES PUBLIC_HEADER gretl_headers)
 
-#install(FILES ${gretl_headers} DESTINATION include/gretl)
+# Install the library and its public headers
+install(TARGETS gretl
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/gretl)
 
 if (GRETL_ENABLE_ASAN)
   add_link_options(-fsanitize=address)
