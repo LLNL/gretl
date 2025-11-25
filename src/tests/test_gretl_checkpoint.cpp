@@ -8,9 +8,9 @@
 #include <cmath>
 #include <iostream>
 #include "gtest/gtest.h"
-#include "checkpoint.hpp"
-#include "state.hpp"
-#include "data_store.hpp"
+#include "gretl/checkpoint.hpp"
+#include "gretl/state.hpp"
+#include "gretl/data_store.hpp"
 
 static size_t count = 0;
 

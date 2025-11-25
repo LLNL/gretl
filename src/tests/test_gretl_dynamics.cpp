@@ -11,10 +11,10 @@
 #include <array>
 #include <functional>
 #include "gtest/gtest.h"
-#include "checkpoint.hpp"
-#include "state.hpp"
-#include "test_utils.hpp"
-#include "vector_state.hpp"
+#include "gretl/checkpoint.hpp"
+#include "gretl/state.hpp"
+#include "gretl/test_utils.hpp"
+#include "gretl/vector_state.hpp"
 
 static constexpr size_t numParams = 4;
 

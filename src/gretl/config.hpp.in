@@ -1,0 +1,31 @@
+// Copyright (c) Lawrence Livermore National Security, LLC and
+// other Gretl Project Developers. See the top-level LICENSE file for
+// details.
+//
+// SPDX-License-Identifier: (BSD-3-Clause)
+
+#pragma once
+
+// Gretl Version Information
+// clang-format off
+#define GRETL_VERSION_MAJOR @GRETL_VERSION_MAJOR@
+#define GRETL_VERSION_MINOR @GRETL_VERSION_MINOR@
+#define GRETL_VERSION_PATCH @GRETL_VERSION_PATCH@
+#define GRETL_VERSION_FULL  "@GRETL_VERSION_FULL@"
+// clang-format on
+/*NOTE: Do not add GRETL_GIT_SHA here.  This will force
+ * full rebuild on all local changes. It is added in gretl::version()
+ * and gretl::about(), as well as accessible from gretl::gitSha().
+ */
+
+// Gretl Locations
+#define GRETL_REPO_DIR "@GRETL_REPO_DIR@"
+#define GRETL_BINARY_DIR "@GRETL_BINARY_DIR@"
+
+// Compiler Information
+#define GRETL_COMPILER_NAME "@CMAKE_CXX_COMPILER_ID@"
+#define GRETL_COMPILER_VERSION "@CMAKE_CXX_COMPILER_VERSION@"
+
+// General defines
+#cmakedefine GRETL_DEBUG
+

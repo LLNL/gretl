@@ -25,7 +25,7 @@ echo "CMAKE_EXTRA_FLAGS=$CMAKE_EXTRA_FLAGS"
 echo "~~~~~~~~~~~~~~~~~~~~~~"
 
 echo "~~~~~~ RUNNING CMAKE ~~~~~~~~"
-cmake_args="-DCMAKE_BUILD_TYPE=Debug -DBUILD_SHARED_LIBS=ON -DENABLE_CLANGTIDY=OFF"
+cmake_args="-DCMAKE_BUILD_TYPE=Debug -DBUILD_SHARED_LIBS=ON -DENABLE_CLANGTIDY=OFF -DGRETL_ENABLE_CODE_CHECKS=ON"
 
 if [[ "$CHECK_TYPE" == "style" ]] ; then
     CLANGFORMAT_EXECUTABLE=/usr/bin/clang-format

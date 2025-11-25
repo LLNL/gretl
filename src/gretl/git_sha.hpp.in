@@ -1,0 +1,17 @@
+// Copyright (c) Lawrence Livermore National Security, LLC and
+// other Gretl Project Developers. See the top-level LICENSE file for
+// details.
+//
+// SPDX-License-Identifier: (BSD-3-Clause)
+
+#pragma once
+
+/*NOTE: Do not include this file in anywhere other than about.cpp.
+ * This variable changes often and will force a full rebuild on all dependent files
+ * any time you git commit and re-run cmake. It is added in gretl::version()
+ * and gretl::about(), as well as accessible from gretl::gitSha().
+ */
+
+// clang-format off
+#define GRETL_GIT_SHA "@GRETL_GIT_SHA@"
+// clang-format on
