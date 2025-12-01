@@ -34,7 +34,6 @@ std::string about();
  */
 std::string gitSHA();
 
-
 /**
  * @brief Returns a string for the version of Gretl
  *
@@ -57,6 +56,5 @@ std::string compiler();
  * @return string value of the build type
  */
 std::string buildType();
-
 
 }  // namespace gretl
