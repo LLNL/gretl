@@ -8,9 +8,9 @@
 #include <cmath>
 #include <iostream>
 #include "gtest/gtest.h"
-#include "checkpoint.hpp"
-#include "state.hpp"
-#include "data_store.hpp"
+#include "gretl/checkpoint.hpp"
+#include "gretl/state.hpp"
+#include "gretl/data_store.hpp"
 
 static size_t count = 0;
 
@@ -150,7 +150,7 @@ TEST_F(CheckpointFixture, Automated)
   std::vector<double> advanceStates(N + 1);
 
   gretl::DataStore dataStore(S);
-  gretl::State<double> X = dataStore.create_state<double,double>(x);
+  gretl::State<double> X = dataStore.create_state<double, double>(x);
 
   advanceStates[0] = X.get();
   for (size_t n = 0; n < N; ++n) {

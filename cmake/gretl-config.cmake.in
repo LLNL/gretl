@@ -1,0 +1,37 @@
+# Copyright (c) Lawrence Livermore National Security, LLC and
+# other Gretl Project Developers. See the top-level COPYRIGHT file for details.
+#
+# SPDX-License-Identifier: (BSD-3-Clause)
+#------------------------------------------------------------------------------
+
+cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
+
+@PACKAGE_INIT@
+
+if(NOT GRETL_FOUND)
+
+  #----------------------------------------------------------------------------
+  # Set version and paths
+  #----------------------------------------------------------------------------
+
+  set(GRETL_VERSION       "@GRETL_VERSION_FULL@")
+  set(GRETL_VERSION_MAJOR "@GRETL_VERSION_MAJOR@")
+  set(GRETL_VERSION_MINOR "@GRETL_VERSION_MINOR@")
+  set(GRETL_VERSION_PATCH "@GRETL_VERSION_PATCH@")
+  
+  set(GRETL_INSTALL_PREFIX "@GRETL_INSTALL_PREFIX@")
+  set(GRETL_INCLUDE_DIRS "${GRETL_INSTALL_PREFIX}/include")
+
+  #----------------------------------------------------------------------------
+  # Load BLT and Gretl targets
+  #----------------------------------------------------------------------------
+  get_filename_component(GRETL_CMAKE_CONFIG_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+  include(${GRETL_CMAKE_CONFIG_DIR}/BLTSetupTargets.cmake)
+  include(${GRETL_CMAKE_CONFIG_DIR}/gretl-targets.cmake)
+
+  #----------------------------------------------------------------------------
+  # Indicate that Gretl is correctly set up
+  #----------------------------------------------------------------------------
+  set(GRETL_FOUND TRUE)
+
+endif()

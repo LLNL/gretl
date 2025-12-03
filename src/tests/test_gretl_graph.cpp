@@ -8,10 +8,10 @@
 #include <cmath>
 #include <stdio.h>
 #include <iostream>
-#include "vector_state.hpp"
-#include "data_store.hpp"
-#include "test_utils.hpp"
 #include "gtest/gtest.h"
+#include "gretl/vector_state.hpp"
+#include "gretl/data_store.hpp"
+#include "gretl/test_utils.hpp"
 
 using gretl::print;
 
