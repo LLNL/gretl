@@ -27,8 +27,11 @@ struct State : public StateBase {
   using type = T;       ///< type
   using dual_type = D;  ///< dual_type
 
-  /// @brief Set primal value of correct type
+  /// @brief Set primal value of correct type (copy)
   inline void set(const T& t) { data_store().set_primal(step(), t); }
+
+  /// @brief Set primal value of correct type (move)
+  inline void set(T&& t) { data_store().set_primal(step(), std::move(t)); }
 
   /// @brief Get primal value of correct type
   inline const T& get() const { return data_store().template get_primal<T>(step()); }

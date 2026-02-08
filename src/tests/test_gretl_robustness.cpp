@@ -14,6 +14,7 @@
 #include <chrono>
 #include <functional>
 #include <iostream>
+#include <iomanip>
 #include "gtest/gtest.h"
 #include "gretl/data_store.hpp"
 #include "gretl/state.hpp"
@@ -1406,4 +1407,316 @@ TEST(PerformanceScaling, RepeatedResetAndBackprop)
 
   // Gradient should be unchanged each time (linear graph)
   EXPECT_NEAR(x0.get_dual(), grad0, 1e-12);
+}
+
+// ---------------------------------------------------------------------------
+// TEST SUITE: VectorBottleneck
+// Detailed timing breakdown for State<vector<double>> to identify where
+// the remaining performance bottlenecks are after Phase 1 (move overloads).
+// ---------------------------------------------------------------------------
+
+// Helper: a vector scale operation that moves its result into downstream
+static VectorState vec_scale_move(const VectorState& a, double s)
+{
+  VectorState b = a.clone({a});
+
+  b.set_eval([s](const gretl::UpstreamStates& upstreams, gretl::DownstreamState& downstream) {
+    gretl::Vector C = upstreams[0].get<gretl::Vector>();  // copy from upstream
+    for (auto& v : C) {
+      v *= s;
+    }
+    downstream.set(std::move(C));  // move into primal
+  });
+
+  b.set_vjp([s](gretl::UpstreamStates& upstreams, const gretl::DownstreamState& downstream) {
+    const gretl::Vector& Cbar = downstream.get_dual<gretl::Vector, gretl::Vector>();
+    gretl::Vector& Abar = upstreams[0].get_dual<gretl::Vector, gretl::Vector>();
+    for (size_t i = 0; i < Abar.size(); ++i) {
+      Abar[i] += s * Cbar[i];
+    }
+  });
+
+  return b.finalize();
+}
+
+// Helper: a vector scale that does NOT move (copies into set)
+static VectorState vec_scale_copy(const VectorState& a, double s)
+{
+  VectorState b = a.clone({a});
+
+  b.set_eval([s](const gretl::UpstreamStates& upstreams, gretl::DownstreamState& downstream) {
+    const gretl::Vector& A = upstreams[0].get<gretl::Vector>();
+    gretl::Vector C(A.size());
+    for (size_t i = 0; i < A.size(); ++i) {
+      C[i] = s * A[i];
+    }
+    downstream.set(C);  // copy into primal (no move)
+  });
+
+  b.set_vjp([s](gretl::UpstreamStates& upstreams, const gretl::DownstreamState& downstream) {
+    const gretl::Vector& Cbar = downstream.get_dual<gretl::Vector, gretl::Vector>();
+    gretl::Vector& Abar = upstreams[0].get_dual<gretl::Vector, gretl::Vector>();
+    for (size_t i = 0; i < Abar.size(); ++i) {
+      Abar[i] += s * Cbar[i];
+    }
+  });
+
+  return b.finalize();
+}
+
+TEST(VectorBottleneck, ProfileByPhase)
+{
+  // Break down total time into construction vs backprop for varying vector sizes.
+  // Chain length fixed at N=100, budget=10.
+  int N = 100;
+  size_t budget = 10;
+
+  std::cout << "\n--- Vector bottleneck profile (N=" << N << ", budget=" << budget << ") ---\n";
+  std::cout << "  vec_size | construct_ms | backprop_ms | total_ms | bytes_per_vec\n";
+
+  std::vector<size_t> vec_sizes = {100, 1000, 10000, 50000, 100000};
+
+  for (size_t S : vec_sizes) {
+    gretl::Vector data(S, 1.0);
+
+    DataStore store(budget);
+    auto x0 = store.create_state(data, gretl::vec::initialize_zero_dual);
+
+    auto start = std::chrono::steady_clock::now();
+    auto x = gretl::copy(x0);
+    for (int i = 0; i < N; ++i) {
+      x = vec_scale_move(x, 0.99);
+    }
+    double construct_ms = elapsed_ms(start);
+
+    auto norm = gretl::inner_product(x, x);
+
+    start = std::chrono::steady_clock::now();
+    gretl::set_as_objective(norm);
+    store.back_prop();
+    double backprop_ms = elapsed_ms(start);
+
+    size_t bytes = S * sizeof(double);
+    std::cout << "  " << std::setw(8) << S
+              << " | " << std::setw(12) << construct_ms
+              << " | " << std::setw(11) << backprop_ms
+              << " | " << std::setw(8) << (construct_ms + backprop_ms)
+              << " | " << std::setw(13) << bytes << "\n";
+
+    // Verify correctness
+    double expected_norm = static_cast<double>(S) * std::pow(0.99, 2 * N);
+    EXPECT_NEAR(norm.get(), expected_norm, expected_norm * 1e-6);
+  }
+  std::cout << "---\n";
+}
+
+TEST(VectorBottleneck, MoveVsCopy)
+{
+  // Compare the move-enabled eval path vs the copy path.
+  // This directly measures the benefit of Phase 1 move overloads.
+  int N = 100;
+  size_t budget = 10;
+
+  std::cout << "\n--- Move vs Copy comparison (N=" << N << ", budget=" << budget << ") ---\n";
+  std::cout << "  vec_size | move_total_ms | copy_total_ms | speedup\n";
+
+  std::vector<size_t> vec_sizes = {1000, 10000, 50000};
+
+  for (size_t S : vec_sizes) {
+    gretl::Vector data(S, 1.0);
+
+    // Move path
+    double move_ms;
+    {
+      DataStore store(budget);
+      auto x0 = store.create_state(data, gretl::vec::initialize_zero_dual);
+
+      auto start = std::chrono::steady_clock::now();
+      auto x = gretl::copy(x0);
+      for (int i = 0; i < N; ++i) {
+        x = vec_scale_move(x, 0.99);
+      }
+      auto norm = gretl::inner_product(x, x);
+      gretl::set_as_objective(norm);
+      store.back_prop();
+      move_ms = elapsed_ms(start);
+
+      double expected = static_cast<double>(S) * std::pow(0.99, 2 * N);
+      EXPECT_NEAR(norm.get(), expected, expected * 1e-6);
+    }
+
+    // Copy path
+    double copy_ms;
+    {
+      DataStore store(budget);
+      auto x0 = store.create_state(data, gretl::vec::initialize_zero_dual);
+
+      auto start = std::chrono::steady_clock::now();
+      auto x = gretl::copy(x0);
+      for (int i = 0; i < N; ++i) {
+        x = vec_scale_copy(x, 0.99);
+      }
+      auto norm = gretl::inner_product(x, x);
+      gretl::set_as_objective(norm);
+      store.back_prop();
+      copy_ms = elapsed_ms(start);
+
+      double expected = static_cast<double>(S) * std::pow(0.99, 2 * N);
+      EXPECT_NEAR(norm.get(), expected, expected * 1e-6);
+    }
+
+    double speedup = copy_ms / move_ms;
+    std::cout << "  " << std::setw(8) << S
+              << " | " << std::setw(13) << move_ms
+              << " | " << std::setw(13) << copy_ms
+              << " | " << std::setw(7) << speedup << "x\n";
+  }
+  std::cout << "---\n";
+}
+
+TEST(VectorBottleneck, CloneOverhead)
+{
+  // Measure the cost of clone() for vector states. clone() always copies
+  // the primal via make_shared<any>(*any_cast<T>(...)), so this is a
+  // remaining copy that move overloads don't help.
+  std::cout << "\n--- Clone overhead for vector states ---\n";
+  std::cout << "  vec_size | clone_100x_ms | per_clone_us\n";
+
+  std::vector<size_t> vec_sizes = {100, 1000, 10000, 50000};
+  int N = 100;
+
+  for (size_t S : vec_sizes) {
+    gretl::Vector data(S, 1.0);
+
+    DataStore store(static_cast<size_t>(N + 5));
+    auto x0 = store.create_state(data, gretl::vec::initialize_zero_dual);
+
+    auto start = std::chrono::steady_clock::now();
+    auto x = x0;
+    for (int i = 0; i < N; ++i) {
+      // clone is called inside vec_scale_move via clone({a})
+      x = vec_scale_move(x, 1.0);
+    }
+    double total_ms = elapsed_ms(start);
+    double per_clone_us = total_ms / N * 1000.0;
+
+    std::cout << "  " << std::setw(8) << S
+              << " | " << std::setw(13) << total_ms
+              << " | " << std::setw(12) << per_clone_us << "\n";
+  }
+  std::cout << "---\n";
+}
+
+TEST(VectorBottleneck, CheckpointRecomputeVsNoRecompute)
+{
+  // Compare budget=N (all in memory, no recomputation) vs budget=5 (heavy recomputation).
+  // This isolates the cost of checkpoint-driven recomputation for large vector states.
+  int N = 100;
+
+  std::cout << "\n--- Checkpoint recompute cost for vectors (N=" << N << ") ---\n";
+  std::cout << "  vec_size | budget=N_ms | budget=5_ms | recomp_overhead\n";
+
+  std::vector<size_t> vec_sizes = {1000, 10000, 50000};
+
+  for (size_t S : vec_sizes) {
+    gretl::Vector data(S, 1.0);
+
+    // budget = N (no recomputation)
+    double no_recomp_ms;
+    {
+      DataStore store(static_cast<size_t>(N + 5));
+      auto x0 = store.create_state(data, gretl::vec::initialize_zero_dual);
+      auto x = gretl::copy(x0);
+      for (int i = 0; i < N; ++i) {
+        x = vec_scale_move(x, 0.99);
+      }
+      auto norm = gretl::inner_product(x, x);
+      gretl::set_as_objective(norm);
+
+      auto start = std::chrono::steady_clock::now();
+      store.back_prop();
+      no_recomp_ms = elapsed_ms(start);
+    }
+
+    // budget = 5 (heavy recomputation)
+    double recomp_ms;
+    {
+      DataStore store(5);
+      auto x0 = store.create_state(data, gretl::vec::initialize_zero_dual);
+      auto x = gretl::copy(x0);
+      for (int i = 0; i < N; ++i) {
+        x = vec_scale_move(x, 0.99);
+      }
+      auto norm = gretl::inner_product(x, x);
+      gretl::set_as_objective(norm);
+
+      auto start = std::chrono::steady_clock::now();
+      store.back_prop();
+      recomp_ms = elapsed_ms(start);
+    }
+
+    double overhead = recomp_ms / no_recomp_ms;
+    std::cout << "  " << std::setw(8) << S
+              << " | " << std::setw(11) << no_recomp_ms
+              << " | " << std::setw(11) << recomp_ms
+              << " | " << std::setw(15) << overhead << "x\n";
+  }
+  std::cout << "---\n";
+}
+
+TEST(VectorBottleneck, GetPrimalCopyCost)
+{
+  // Measure the cost of get_primal<Vector> (which returns const ref, no copy)
+  // vs the copy that happens inside eval when reading upstream.get<Vector>()
+  // followed by modification. This isolates the read side.
+  int N = 200;
+  size_t S = 10000;
+
+  std::cout << "\n--- get_primal read cost (N=" << N << ", vec_size=" << S << ") ---\n";
+
+  gretl::Vector data(S, 1.0);
+
+  // Pattern 1: Read-only (inner_product reads but doesn't copy vectors)
+  double readonly_ms;
+  {
+    DataStore store(static_cast<size_t>(N + 5));
+    auto x0 = store.create_state(data, gretl::vec::initialize_zero_dual);
+    auto x = gretl::copy(x0);
+    // Chain of inner_products: each reads 2 vectors but writes 1 double
+    std::vector<State<double>> norms;
+    for (int i = 0; i < N; ++i) {
+      norms.push_back(gretl::inner_product(x, x));
+    }
+    // Sum all norms via a chain
+    auto total = norms[0];
+    for (int i = 1; i < N; ++i) {
+      total = total + norms[static_cast<size_t>(i)];
+    }
+    gretl::set_as_objective(total);
+    auto start = std::chrono::steady_clock::now();
+    store.back_prop();
+    readonly_ms = elapsed_ms(start);
+  }
+
+  // Pattern 2: Read + copy + write (scale operation copies the vector)
+  double readwrite_ms;
+  {
+    DataStore store(static_cast<size_t>(N + 5));
+    auto x0 = store.create_state(data, gretl::vec::initialize_zero_dual);
+    auto x = gretl::copy(x0);
+    for (int i = 0; i < N; ++i) {
+      x = vec_scale_move(x, 1.0);  // copies upstream vector, scales, moves result
+    }
+    auto norm = gretl::inner_product(x, x);
+    gretl::set_as_objective(norm);
+    auto start = std::chrono::steady_clock::now();
+    store.back_prop();
+    readwrite_ms = elapsed_ms(start);
+  }
+
+  std::cout << "  read-only (inner_product chain): " << readonly_ms << "ms\n";
+  std::cout << "  read+copy+write (scale chain):   " << readwrite_ms << "ms\n";
+  std::cout << "  copy+write overhead:             " << (readwrite_ms - readonly_ms) << "ms"
+            << " (" << (readwrite_ms / readonly_ms) << "x)\n";
+  std::cout << "---\n";
 }

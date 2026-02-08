@@ -82,11 +82,18 @@ struct DownstreamState {
   /// @param step step
   DownstreamState(DataStore* s, Int step) : dataStore_(s), step_(step) {}
 
-  /// @brief set underlying value
+  /// @brief set underlying value (copy)
   template <typename T, typename D = T>
   void set(const T& t)
   {
-    return dataStore_->set_primal<T>(step_, t);
+    dataStore_->set_primal(step_, t);
+  }
+
+  /// @brief set underlying value (move)
+  template <typename T, typename D = std::decay_t<T>>
+  void set(T&& t)
+  {
+    dataStore_->set_primal(step_, std::forward<T>(t));
   }
 
   /// @brief get underlying value

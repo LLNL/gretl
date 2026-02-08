@@ -16,6 +16,8 @@
 #include <functional>
 #include <memory>
 #include <any>
+#include <type_traits>
+#include <utility>
 #include "checkpoint.hpp"
 #include "print_utils.hpp"
 
@@ -158,26 +160,21 @@ class DataStore {
     return *tptr;
   }
 
-  /// @brief Set primal value
+  /// @brief Set primal value (forwarding version: moves rvalues, copies lvalues)
   /// @param step step
   /// @param t value of type T to set primal to
   template <typename T>
-  void set_primal(Int step, const T& t)
+  void set_primal(Int step, T&& t)
   {
-    T* tptr = std::any_cast<T>(any_primal(step).get());
+    using U = std::decay_t<T>;
+    U* tptr = std::any_cast<U>(any_primal(step).get());
     if (!tptr) {
       gretl_assert(!stillConstructingGraph_);
-      // MRT, debug reverse pass here
-      // if (usageCount_[step] != 1) {
-      //   print("step", step);
-      //   print_graph();
-      // }
-      // gretl_assert(usageCount_[step] == 1);
-      any_primal(step) = std::make_shared<std::any>(t);
+      any_primal(step) = std::make_shared<std::any>(std::forward<T>(t));
       return;
     }
     gretl_assert(tptr);
-    *tptr = t;
+    *tptr = std::forward<T>(t);
   }
 
   /// @brief Get dual value
