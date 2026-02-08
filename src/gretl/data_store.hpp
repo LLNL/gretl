@@ -16,6 +16,8 @@
 #include <functional>
 #include <memory>
 #include <any>
+#include <type_traits>
+#include <utility>
 #include "checkpoint.hpp"
 #include "print_utils.hpp"
 
@@ -57,8 +59,11 @@ class DataStore {
   /// This does not include persistent states, nor states held in scope by the user.
   DataStore(size_t maxStates);
 
-  /// @brief virtual destructor
-  virtual ~DataStore() {}
+  /// @brief virtual destructor. Must clear states_ first because StateBase
+  /// destructors call try_to_free() which accesses upstreams_ and other members.
+  /// Without this, implicit reverse-declaration-order destruction would destroy
+  /// upstreams_ before states_, causing use-after-free.
+  virtual ~DataStore() { states_.clear(); }
 
   /// @brief create a new state in the graph, store it, return it
   template <typename T, typename D>
@@ -155,26 +160,21 @@ class DataStore {
     return *tptr;
   }
 
-  /// @brief Set primal value
+  /// @brief Set primal value (forwarding version: moves rvalues, copies lvalues)
   /// @param step step
   /// @param t value of type T to set primal to
   template <typename T>
-  void set_primal(Int step, const T& t)
+  void set_primal(Int step, T&& t)
   {
-    T* tptr = std::any_cast<T>(any_primal(step).get());
+    using U = std::decay_t<T>;
+    U* tptr = std::any_cast<U>(any_primal(step).get());
     if (!tptr) {
       gretl_assert(!stillConstructingGraph_);
-      // MRT, debug reverse pass here
-      // if (usageCount_[step] != 1) {
-      //   print("step", step);
-      //   print_graph();
-      // }
-      // gretl_assert(usageCount_[step] == 1);
-      any_primal(step) = std::make_shared<std::any>(t);
+      any_primal(step) = std::make_shared<std::any>(std::forward<T>(t));
       return;
     }
     gretl_assert(tptr);
-    *tptr = t;
+    *tptr = std::forward<T>(t);
   }
 
   /// @brief Get dual value

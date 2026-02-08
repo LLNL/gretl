@@ -77,7 +77,11 @@ void DataStore::reset_graph()
     if (is_persistent(stepToClear)) {
       num_persistent++;
     }
+    duals_[stepToClear] = nullptr;
   }
+  // Restore currentStep_ before resize, since back_prop() decrements it to 0
+  // but resize() asserts newSize <= currentStep_.
+  currentStep_ = static_cast<Int>(states_.size());
   resize(num_persistent);
   checkpointManager_.reset();
   stillConstructingGraph_ = true;
