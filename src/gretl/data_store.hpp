@@ -57,8 +57,11 @@ class DataStore {
   /// This does not include persistent states, nor states held in scope by the user.
   DataStore(size_t maxStates);
 
-  /// @brief virtual destructor
-  virtual ~DataStore() {}
+  /// @brief virtual destructor. Must clear states_ first because StateBase
+  /// destructors call try_to_free() which accesses upstreams_ and other members.
+  /// Without this, implicit reverse-declaration-order destruction would destroy
+  /// upstreams_ before states_, causing use-after-free.
+  virtual ~DataStore() { states_.clear(); }
 
   /// @brief create a new state in the graph, store it, return it
   template <typename T, typename D>
