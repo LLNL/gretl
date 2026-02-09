@@ -6,13 +6,23 @@
 
 #include <any>
 #include "data_store.hpp"
+#include "wang_checkpoint_strategy.hpp"
 #include "state.hpp"
 #include <iostream>
 #include <iomanip>
 
 namespace gretl {
 
-DataStore::DataStore(size_t maxStates) : checkpointManager_{.maxNumStates = maxStates, .cps{}} { currentStep_ = 0; }
+DataStore::DataStore(size_t maxStates)
+    : checkpointStrategy_(std::make_unique<WangCheckpointStrategy>(maxStates))
+{
+  currentStep_ = 0;
+}
+
+DataStore::DataStore(std::unique_ptr<CheckpointStrategy> strategy) : checkpointStrategy_(std::move(strategy))
+{
+  currentStep_ = 0;
+}
 
 void DataStore::back_prop()
 {
@@ -65,7 +75,7 @@ void DataStore::reset()
     }
     duals_[stepToClear] = nullptr;
   }
-  checkpointManager_.reset();
+  checkpointStrategy_->reset();
   currentStep_ = num_persistent;
 }
 
@@ -83,7 +93,7 @@ void DataStore::reset_graph()
   // but resize() asserts newSize <= currentStep_.
   currentStep_ = static_cast<Int>(states_.size());
   resize(num_persistent);
-  checkpointManager_.reset();
+  checkpointStrategy_->reset();
   stillConstructingGraph_ = true;
 }
 
@@ -122,14 +132,14 @@ void DataStore::reverse_state()
 {
   // must erase the final step in the cp manager before we get started
   if (currentStep_ == states_.size()) {
-    checkpointManager_.erase_step(currentStep_ - 1);
+    checkpointStrategy_->erase_step(currentStep_ - 1);
   }
   --currentStep_;
   if (upstreams_[currentStep_].size()) {
     fetch_state_data(currentStep_ - 1);
     vjp(*states_[currentStep_]);
     clear_usage(currentStep_);
-    checkpointManager_.erase_step(currentStep_ - 1);
+    checkpointStrategy_->erase_step(currentStep_ - 1);
   }
 }
 
@@ -178,7 +188,7 @@ void DataStore::add_state(std::unique_ptr<StateBase> newState, const std::vector
 
   bool persistent = upstreams.size() == 0;
   if (persistent) {
-    checkpointManager_.add_checkpoint_and_get_index_to_remove(step, persistent);
+    checkpointStrategy_->add_checkpoint_and_get_index_to_remove(step, persistent);
   }
 
   std::vector<Int> upstreamSteps;
@@ -244,11 +254,11 @@ void DataStore::add_state(std::unique_ptr<StateBase> newState, const std::vector
 void DataStore::fetch_state_data(Int stepIndex)
 {
   gretl_assert_msg(!stillConstructingGraph_, "not allowed to fetch state before the graph is constructed");
-  Int lastCheckpoint = static_cast<Int>(checkpointManager_.last_checkpoint_step());
+  Int lastCheckpoint = static_cast<Int>(checkpointStrategy_->last_checkpoint_step());
   if (lastCheckpoint > stepIndex) {
     print("An issue was found when fetching a previous states data\n");
     print_graph();
-    std::cout << checkpointManager_ << std::endl;
+    checkpointStrategy_->print(std::cout);
   }
   gretl_assert_msg(lastCheckpoint <= stepIndex,
                    std::string("last checkpoint cannot be ahead of the currently requested step ") +
@@ -270,6 +280,7 @@ void DataStore::fetch_state_data(Int stepIndex)
       erase_step_state_data(iEval);
     } else {
       states_[iEval]->evaluate_forward();
+      checkpointStrategy_->record_recomputation();
     }
 
     gretl_assert(check_validity());
@@ -279,8 +290,8 @@ void DataStore::fetch_state_data(Int stepIndex)
 void DataStore::erase_step_state_data(Int step)
 {
   if (!is_persistent(step)) {
-    size_t stepToErase = checkpointManager_.add_checkpoint_and_get_index_to_remove(step);
-    if (checkpointManager_.valid_checkpoint_index(stepToErase)) {
+    size_t stepToErase = checkpointStrategy_->add_checkpoint_and_get_index_to_remove(step);
+    if (CheckpointStrategy::valid_checkpoint_index(stepToErase)) {
       active_[stepToErase] = false;
       try_to_free(static_cast<Int>(stepToErase));
       for_each_active_upstream(this, stepToErase, [&](Int upstream) {
@@ -303,13 +314,7 @@ bool DataStore::check_validity() const
   // we are allowed to be saving an extra step here at the end
   for (size_t i = 0; i < currentStep_; ++i) {
     if (active_[i]) {
-      bool cp_has_i = false;
-      for (auto& cp : checkpointManager_.cps) {
-        if (cp.step == i) {
-          cp_has_i = true;
-          break;
-        }
-      }
+      bool cp_has_i = checkpointStrategy_->contains_step(i);
       if (!cp_has_i) {
         gretl::print("step", i, "not consistent with checkpoint manager");
         valid = false;
@@ -362,7 +367,7 @@ void DataStore::print_graph() const
     }
     std::cout << std::endl;
   }
-  // std::cout << checkpointManager_ << std::endl;
+  // checkpointStrategy_->print(std::cout);
 }
 
 }  // namespace gretl

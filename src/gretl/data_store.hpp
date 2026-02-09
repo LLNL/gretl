@@ -19,6 +19,7 @@
 #include <type_traits>
 #include <utility>
 #include "checkpoint.hpp"
+#include "checkpoint_strategy.hpp"
 #include "print_utils.hpp"
 
 #ifdef __GNUG__
@@ -54,10 +55,14 @@ struct defaultInitializeZeroDual {
 /// checkpointing state information, and its backpropagated sensitivities
 class DataStore {
  public:
-  /// @brief Constructor
+  /// @brief Constructor with default Wang checkpoint strategy.
   /// @param maxStates maximum number of states the users is allowing to be allocated for the dynamic checkpointing.
   /// This does not include persistent states, nor states held in scope by the user.
   DataStore(size_t maxStates);
+
+  /// @brief Constructor with user-provided checkpoint strategy.
+  /// @param strategy a checkpoint strategy implementation (e.g., WangCheckpointStrategy, OnlineR2CheckpointStrategy)
+  DataStore(std::unique_ptr<CheckpointStrategy> strategy);
 
   /// @brief virtual destructor. Must clear states_ first because StateBase
   /// destructors call try_to_free() which accesses upstreams_ and other members.
@@ -249,7 +254,7 @@ class DataStore {
                                                 ///< eventually used in some future step as an upstream
 
   /// container which track the states in the graph with allocated data
-  CheckpointManager checkpointManager_;
+  std::unique_ptr<CheckpointStrategy> checkpointStrategy_;
 
   /// step counter
   Int currentStep_;

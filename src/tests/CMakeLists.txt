@@ -6,6 +6,7 @@
 
 set(gretl_test_sources
     test_gretl_checkpoint.cpp
+    test_gretl_checkpoint_compare.cpp
     test_gretl_dynamics.cpp
     test_gretl_graph.cpp
     test_gretl_robustness.cpp)
