@@ -39,18 +39,16 @@ namespace gretl {
 /// given the reverse_callback vjp.
 /// @tparam T type of each state's data
 /// @param numSteps number of forward iterations
-/// @param storageSize maximum states to save in memory at a time (unused, kept for backward compatibility)
 /// @param x initial condition
 /// @param update_func function which evaluates the forward response
 /// @param reverse_callback vjp function (action of Jacobian-transposed) to back propagate sensitivities
 /// @param strategy checkpoint strategy (required)
 /// @return
 template <typename T>
-T advance_and_reverse_steps(size_t numSteps, size_t storageSize, T x, std::function<T(size_t n, const T&)> update_func,
+T advance_and_reverse_steps(size_t numSteps, T x, std::function<T(size_t n, const T&)> update_func,
                             std::function<void(size_t n, const T&)> reverse_callback,
                             std::unique_ptr<CheckpointStrategy> strategy)
 {
-  (void)storageSize;  // Unused parameter, kept for backward compatibility
   CheckpointStrategy& cps = *strategy;
   std::map<size_t, T> savedCps;
   savedCps[0] = x;

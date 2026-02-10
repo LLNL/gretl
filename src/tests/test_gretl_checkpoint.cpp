@@ -97,7 +97,7 @@ TEST_F(CheckpointFixture, Functional)
   std::vector<double> reverseStates(N + 1);
 
   double xf = gretl::advance_and_reverse_steps<double>(
-      N, S, x0,
+      N, x0,
       [&](size_t n, const double& x) {
         // update function
         advanceStates[n] = x;
@@ -286,7 +286,7 @@ TEST_P(CheckpointStrategyTest, Functional)
   auto strategy = make_strategy(GetParam(), S);
 
   double xf = gretl::advance_and_reverse_steps<double>(
-      N, S, x0,
+      N, x0,
       [&](size_t n, const double& x) {
         advanceStates[n] = x;
         return advance_solution(x);
