@@ -17,6 +17,7 @@
 #include <iomanip>
 #include "gtest/gtest.h"
 #include "gretl/data_store.hpp"
+#include "gretl/wang_checkpoint_strategy.hpp"
 #include "gretl/state.hpp"
 #include "gretl/double_state.hpp"
 #include "gretl/vector_state.hpp"
@@ -97,7 +98,7 @@ TEST(ScopeLifetime, ChainInSubfunc_SmallBudget)
 {
   // Very tight checkpoint budget (2), long chain built entirely in a sub-func.
   // Intermediates go out of scope on return.
-  DataStore store(2);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(2));
   auto x0 = store.create_state<double, double>(3.0);
   auto xN = build_chain_in_subfunc(x0, 20);
 
@@ -115,7 +116,7 @@ TEST(ScopeLifetime, ChainInSubfunc_SmallBudget)
 TEST(ScopeLifetime, ChainInSubfunc_TinyBudget)
 {
   // Budget of 1 (absolute minimum for non-persistent checkpoints)
-  DataStore store(1);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(1));
   auto x0 = store.create_state<double, double>(5.0);
   auto xN = build_chain_in_subfunc(x0, 10);
 
@@ -131,7 +132,7 @@ TEST(ScopeLifetime, ChainInSubfunc_TinyBudget)
 
 TEST(ScopeLifetime, DiamondInSubfunc)
 {
-  DataStore store(3);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(3));
   auto x0 = store.create_state<double, double>(2.0);
   auto result = build_diamond_in_subfunc(x0);
 
@@ -147,7 +148,7 @@ TEST(ScopeLifetime, DiamondInSubfunc)
 TEST(ScopeLifetime, NestedSubfuncs)
 {
   // Two levels of sub-function scope nesting
-  DataStore store(3);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(3));
   auto x0 = store.create_state<double, double>(4.0);
   auto result = build_nested_subfuncs(x0);
 
@@ -164,7 +165,7 @@ TEST(ScopeLifetime, NestedSubfuncs)
 
 TEST(ScopeLifetime, FanoutInSubfunc)
 {
-  DataStore store(4);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(4));
   auto x0 = store.create_state<double, double>(3.0);
   auto result = build_fanout_in_subfunc(x0, 5);
 
@@ -185,7 +186,7 @@ TEST(ExternalReferences, HeldIntermediatesPreventPrematureFreeing)
 {
   // Hold all intermediates in a vector -- use_count stays > 1 for each.
   // This should prevent try_to_free from deallocating them prematurely.
-  DataStore store(3);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(3));
   auto x0 = store.create_state<double, double>(2.0);
 
   std::vector<State<double>> held;
@@ -209,7 +210,7 @@ TEST(ExternalReferences, HeldIntermediatesThenDropped)
   // Hold intermediates, run backprop, then drop them.
   // This tests the destructor path when states go out of scope
   // after the graph has been back-propagated.
-  DataStore store(3);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(3));
   auto x0 = store.create_state<double, double>(2.0);
 
   {
@@ -230,7 +231,7 @@ TEST(ExternalReferences, HeldIntermediatesThenDropped)
 TEST(ExternalReferences, CopyStateAcrossScopes)
 {
   // Create a state in one scope, copy it to another, let original go out of scope.
-  DataStore store(4);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(4));
   auto x0 = store.create_state<double, double>(7.0);
 
   // Build inner in a lambda that returns it, so the original goes out of scope
@@ -258,7 +259,7 @@ TEST(AssignmentOperator, ReassignMidGraph)
 {
   // Reassign a local state variable multiple times in graph construction.
   // Each assignment triggers try_to_free on the old step.
-  DataStore store(4);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(4));
   auto x0 = store.create_state<double, double>(1.0);
 
   auto a = gretl::axpb(2.0, x0, 0.0);      // step 1: 2.0
@@ -279,7 +280,7 @@ TEST(AssignmentOperator, ReassignInLoop)
 {
   // Classic pattern: `x = f(x)` in a loop. Each iteration reassigns
   // the local variable, old step must be freed properly.
-  DataStore store(3);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(3));
   auto x0 = store.create_state<double, double>(1.0);
 
   auto x = gretl::axpb(1.0, x0, 0.0);  // copy
@@ -309,7 +310,7 @@ TEST(CheckpointEviction, LongChainMinimalBudget)
 {
   // 50 steps with budget of 2: forces many recomputations.
   int N = 50;
-  DataStore store(2);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(2));
   auto x0 = store.create_state<double, double>(1.0);
 
   auto x = x0;
@@ -328,7 +329,7 @@ TEST(CheckpointEviction, LongChainLargeBudget)
   // Same chain, but with generous budget. Exercises different checkpoint
   // decisions (most states fit in memory).
   int N = 50;
-  DataStore store(60);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(60));
   auto x0 = store.create_state<double, double>(1.0);
 
   auto x = x0;
@@ -346,7 +347,7 @@ TEST(CheckpointEviction, MediumChainExactBudget)
 {
   // Budget = N: every state fits. Edge case for checkpoint manager.
   int N = 10;
-  DataStore store(static_cast<size_t>(N));
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(static_cast<size_t>(N)));
   auto x0 = store.create_state<double, double>(2.0);
 
   auto x = x0;
@@ -368,7 +369,7 @@ TEST(CheckpointEviction, MediumChainExactBudget)
 TEST(DAGTopology, DiamondDependency)
 {
   // x0 -> a, x0 -> b, c = a*b (diamond)
-  DataStore store(4);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(4));
   auto x0 = store.create_state<double, double>(3.0);
 
   auto a = gretl::axpb(2.0, x0, 1.0);   // 2*3+1 = 7
@@ -389,7 +390,7 @@ TEST(DAGTopology, DiamondDependency)
 TEST(DAGTopology, MultiInputDiamond)
 {
   // x0, y0 -> a = x0+y0, b = x0*y0, c = a+b
-  DataStore store(5);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(5));
   auto x0 = store.create_state<double, double>(2.0);
   auto y0 = store.create_state<double, double>(3.0);
 
@@ -411,7 +412,7 @@ TEST(DAGTopology, MultiInputDiamond)
 TEST(DAGTopology, SkipConnection)
 {
   // x0 -> a -> b -> c, but also x0 -> c directly (skip connection)
-  DataStore store(5);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(5));
   auto x0 = store.create_state<double, double>(2.0);
 
   auto a = gretl::axpb(2.0, x0, 0.0);  // 4
@@ -432,7 +433,7 @@ TEST(DAGTopology, WideFanoutThenMerge)
   // x0 fans out to 10 branches, all merge back together by summation.
   // Stresses usageCount tracking on x0.
   int W = 10;
-  DataStore store(static_cast<size_t>(W + 2));
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(static_cast<size_t>(W + 2)));
   auto x0 = store.create_state<double, double>(1.5);
 
   State<double> sum = gretl::axpb(1.0, x0, 0.0);
@@ -454,7 +455,7 @@ TEST(DAGTopology, SkipConnectionTightBudget)
 {
   // Skip connection with minimal checkpoint budget.
   // x0 is used both early and late in the graph.
-  DataStore store(2);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(2));
   auto x0 = store.create_state<double, double>(2.0);
 
   auto a = gretl::axpb(2.0, x0, 0.0);
@@ -480,7 +481,7 @@ TEST(DAGTopology, SkipConnectionTightBudget)
 TEST(ResetAndRerun, ResetAndRerunGraph)
 {
   // Build graph, backprop, reset, change persistent input, re-evaluate, backprop again.
-  DataStore store(5);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(5));
   auto x0 = store.create_state<double, double>(2.0);
 
   auto a = gretl::axpb(3.0, x0, 1.0);  // 7
@@ -507,7 +508,7 @@ TEST(ResetAndRerun, ResetGraphAndRebuild)
 {
   // Previously crashed: after back_prop(), currentStep_ was 0 but resize()
   // asserted newSize <= currentStep_. Fixed by restoring currentStep_ first.
-  DataStore store(5);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(5));
   auto x0 = store.create_state<double, double>(2.0);
 
   // First graph: x0 -> 3*x0+1
@@ -539,7 +540,7 @@ TEST(NonlinearStress, MultiplyChainTightBudget)
 {
   // x = x * x iteratively (squaring). Very sensitive to recomputation errors
   // because the function is nonlinear.
-  DataStore store(2);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(2));
   auto x0 = store.create_state<double, double>(1.1);
 
   auto x = gretl::axpb(1.0, x0, 0.0);
@@ -564,7 +565,7 @@ TEST(NonlinearStress, MultiplyChainTightBudget)
 TEST(NonlinearStress, MixedLinearNonlinear)
 {
   // Alternating linear and nonlinear ops.
-  DataStore store(4);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(4));
   auto x0 = store.create_state<double, double>(0.5);
   auto y0 = store.create_state<double, double>(0.3);
 
@@ -616,7 +617,7 @@ TEST(NonlinearStress, MixedLinearNonlinear)
 TEST(LargeGraphStress, Chain100Budget3)
 {
   int N = 100;
-  DataStore store(3);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(3));
   auto x0 = store.create_state<double, double>(1.0);
 
   auto x = x0;
@@ -633,7 +634,7 @@ TEST(LargeGraphStress, Chain100Budget3)
 TEST(LargeGraphStress, Chain200Budget5)
 {
   int N = 200;
-  DataStore store(5);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(5));
   auto x0 = store.create_state<double, double>(1.0);
 
   auto x = x0;
@@ -652,7 +653,7 @@ TEST(LargeGraphStress, NonlinearChain50Budget2)
   // Nonlinear chain with very tight budget: exercises checkpoint correctness
   // for nonlinear functions where recomputation must match original.
   int N = 50;
-  DataStore store(2);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(2));
   auto x0 = store.create_state<double, double>(0.5);
 
   auto x = gretl::axpb(1.0, x0, 0.0);
@@ -688,7 +689,7 @@ TEST(LargeGraphStress, NonlinearChain50Budget2)
 
 TEST(VectorStateStress, ChainInSubfunc)
 {
-  DataStore store(3);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(3));
   std::vector<double> data = {1.0, 2.0, 3.0};
   auto x0 = store.create_state(data, gretl::vec::initialize_zero_dual);
 
@@ -712,7 +713,7 @@ TEST(VectorStateStress, ChainInSubfunc)
 
 TEST(VectorStateStress, DiamondWithVectors)
 {
-  DataStore store(5);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(5));
   std::vector<double> dataA = {1.0, 2.0};
   std::vector<double> dataB = {3.0, 4.0};
 
@@ -751,7 +752,7 @@ TEST(VectorStateStress, DiamondWithVectors)
 
 TEST(MultiPersistentState, ThreeInputsDeepGraph)
 {
-  DataStore store(4);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(4));
   auto x = store.create_state<double, double>(1.0);
   auto y = store.create_state<double, double>(2.0);
   auto z = store.create_state<double, double>(3.0);
@@ -791,7 +792,7 @@ TEST(MultiPersistentState, RepeatedUseOfAllInputs)
 {
   // All three persistent inputs used at multiple points in the graph.
   // Exercises passthrough and lastStepUsed tracking.
-  DataStore store(3);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(3));
   auto x = store.create_state<double, double>(0.5);
   auto y = store.create_state<double, double>(0.3);
   auto z = store.create_state<double, double>(0.7);
@@ -827,7 +828,7 @@ TEST(MultiPersistentState, RepeatedUseOfAllInputs)
 TEST(EdgeCases, SingleStepGraph)
 {
   // Minimal graph: one persistent state, one derived state.
-  DataStore store(1);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(1));
   auto x0 = store.create_state<double, double>(5.0);
   auto y = gretl::axpb(2.0, x0, 3.0);
 
@@ -841,7 +842,7 @@ TEST(EdgeCases, SingleStepGraph)
 
 TEST(EdgeCases, TwoStepGraph)
 {
-  DataStore store(1);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(1));
   auto x0 = store.create_state<double, double>(5.0);
   auto a = gretl::axpb(2.0, x0, 1.0);
   auto b = gretl::axpb(3.0, a, -1.0);
@@ -857,7 +858,7 @@ TEST(EdgeCases, TwoStepGraph)
 TEST(EdgeCases, StateUsedOnceVsManyTimes)
 {
   // Compare: state used as upstream once vs. multiple times in the same operation's dependency.
-  DataStore store(4);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(4));
   auto x0 = store.create_state<double, double>(3.0);
 
   // x0 * x0 = x0^2  (x0 used twice as upstream)
@@ -876,7 +877,7 @@ TEST(EdgeCases, DeepChainSingleBudget)
   // Budget of exactly 1 with a deep chain.
   // This is the absolute minimum and forces full recomputation on every reverse step.
   int N = 30;
-  DataStore store(1);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(1));
   auto x0 = store.create_state<double, double>(1.0);
 
   auto x = x0;
@@ -906,7 +907,7 @@ static State<double> create_use_and_discard(const State<double>& input, double s
 
 TEST(TemporaryStateInSubFunction, BasicPattern)
 {
-  DataStore store(3);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(3));
   auto x0 = store.create_state<double, double>(4.0);
 
   // Call sub-function 3 times in sequence
@@ -926,7 +927,7 @@ TEST(TemporaryStateInSubFunction, BasicPattern)
 
 TEST(TemporaryStateInSubFunction, LoopedSubFuncCalls)
 {
-  DataStore store(2);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(2));
   auto x0 = store.create_state<double, double>(2.0);
 
   auto x = x0;
@@ -951,7 +952,7 @@ TEST(TemporaryStateInSubFunction, LoopedSubFuncCalls)
 TEST(TemporaryStateInSubFunction, MixedScopeTempsAndPersisted)
 {
   // Some states held externally, others are temporaries in sub-functions.
-  DataStore store(4);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(4));
   auto x0 = store.create_state<double, double>(3.0);
 
   auto held = gretl::axpb(2.0, x0, 0.0);  // 6.0, held in this scope
@@ -982,7 +983,7 @@ TEST(DestructorTiming, StateDestroyedAfterBackprop)
   // State objects going out of scope after back_prop has completed.
   // Their destructors call try_to_free, which should handle the
   // post-backprop state gracefully.
-  DataStore store(3);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(3));
   auto x0 = store.create_state<double, double>(1.0);
 
   {
@@ -1003,7 +1004,7 @@ TEST(DestructorTiming, StateDestroyedAfterBackprop)
 TEST(DestructorTiming, InterleavedCreationAndDestruction)
 {
   // Create states, let some go out of scope, create more.
-  DataStore store(5);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(5));
   auto x0 = store.create_state<double, double>(1.0);
 
   // Use a lambda to create a state derived from an intermediate that goes out of scope
@@ -1074,7 +1075,7 @@ TEST(PerformanceScaling, LinearChainRecomputationCount)
   std::cout << "\n--- Recomputation counts: N steps, S budget, fwd_evals (backprop), ratio=evals/N ---\n";
 
   for (auto& cfg : configs) {
-    DataStore store(cfg.budget);
+    DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(cfg.budget));
     auto x0 = store.create_state<double, double>(1.0);
 
     g_eval_count = 0;
@@ -1114,7 +1115,7 @@ TEST(PerformanceScaling, ConstructionTimeScaling)
   double prev_ms = 0;
 
   for (int N : sizes) {
-    DataStore store(10);
+    DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(10));
     auto x0 = store.create_state<double, double>(1.0);
 
     auto start = std::chrono::steady_clock::now();
@@ -1147,7 +1148,7 @@ TEST(PerformanceScaling, BackpropTimeVsBudget)
   std::vector<size_t> budgets = {2, 3, 5, 10, 20, 50, 100, 500};
 
   for (size_t budget : budgets) {
-    DataStore store(budget);
+    DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(budget));
     auto x0 = store.create_state<double, double>(1.0);
 
     auto x = x0;
@@ -1181,7 +1182,7 @@ TEST(PerformanceScaling, SkipConnectionPassthroughOverhead)
 
   // Case 1: persistent x0 used at every step (no passthrough overhead)
   {
-    DataStore store(static_cast<size_t>(N + 2));
+    DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(static_cast<size_t>(N + 2)));
     auto x0 = store.create_state<double, double>(1.0);
 
     auto start = std::chrono::steady_clock::now();
@@ -1200,7 +1201,7 @@ TEST(PerformanceScaling, SkipConnectionPassthroughOverhead)
 
   // Case 2: non-persistent step 1 used at every step (passthrough overhead)
   {
-    DataStore store(static_cast<size_t>(N + 2));
+    DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(static_cast<size_t>(N + 2)));
     auto x0 = store.create_state<double, double>(1.0);
     auto base = gretl::axpb(1.0, x0, 0.0);  // step 1 (non-persistent)
 
@@ -1233,7 +1234,7 @@ TEST(PerformanceScaling, CheckpointSetOperationOverhead)
 
   for (int N : sizes) {
     // Budget = N (everything fits, no recomputation)
-    DataStore store(static_cast<size_t>(N));
+    DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(static_cast<size_t>(N)));
     auto x0 = store.create_state<double, double>(1.0);
 
     auto x = x0;
@@ -1265,7 +1266,7 @@ TEST(PerformanceScaling, LargeVectorStateScaling)
   for (size_t S : vec_sizes) {
     std::vector<double> data(S, 1.0);
 
-    DataStore store(10);
+    DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(10));
     auto x0 = store.create_state(data, gretl::vec::initialize_zero_dual);
 
     auto start = std::chrono::steady_clock::now();
@@ -1296,7 +1297,7 @@ TEST(PerformanceScaling, WideFanoutScaling)
   std::vector<int> widths = {5, 10, 20, 50, 100};
 
   for (int W : widths) {
-    DataStore store(static_cast<size_t>(2 * W + 5));
+    DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(static_cast<size_t>(2 * W + 5)));
     auto x0 = store.create_state<double, double>(1.0);
 
     auto start = std::chrono::steady_clock::now();
@@ -1331,7 +1332,7 @@ TEST(PerformanceScaling, DeepDAGWithMultipleInputs)
   std::vector<int> depths = {50, 100, 200, 500, 1000};
 
   for (int N : depths) {
-    DataStore store(10);
+    DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(10));
     auto x = store.create_state<double, double>(0.5);
     auto y = store.create_state<double, double>(0.3);
 
@@ -1367,7 +1368,7 @@ TEST(PerformanceScaling, RepeatedResetAndBackprop)
   // This is the pattern for iterative optimization.
   int N = 100;
   int iters = 20;
-  DataStore store(10);
+  DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(10));
   auto x0 = store.create_state<double, double>(1.0);
 
   auto x = x0;
@@ -1468,7 +1469,7 @@ TEST(VectorBottleneck, ProfileByPhase)
   for (size_t S : vec_sizes) {
     gretl::Vector data(S, 1.0);
 
-    DataStore store(budget);
+    DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(budget));
     auto x0 = store.create_state(data, gretl::vec::initialize_zero_dual);
 
     auto start = std::chrono::steady_clock::now();
@@ -1515,7 +1516,7 @@ TEST(VectorBottleneck, MoveVsCopy)
     // Move path
     double move_ms;
     {
-      DataStore store(budget);
+      DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(budget));
       auto x0 = store.create_state(data, gretl::vec::initialize_zero_dual);
 
       auto start = std::chrono::steady_clock::now();
@@ -1535,7 +1536,7 @@ TEST(VectorBottleneck, MoveVsCopy)
     // Copy path
     double copy_ms;
     {
-      DataStore store(budget);
+      DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(budget));
       auto x0 = store.create_state(data, gretl::vec::initialize_zero_dual);
 
       auto start = std::chrono::steady_clock::now();
@@ -1573,7 +1574,7 @@ TEST(VectorBottleneck, CloneOverhead)
   for (size_t S : vec_sizes) {
     gretl::Vector data(S, 1.0);
 
-    DataStore store(static_cast<size_t>(N + 5));
+    DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(static_cast<size_t>(N + 5)));
     auto x0 = store.create_state(data, gretl::vec::initialize_zero_dual);
 
     auto start = std::chrono::steady_clock::now();
@@ -1608,7 +1609,7 @@ TEST(VectorBottleneck, CheckpointRecomputeVsNoRecompute)
     // budget = N (no recomputation)
     double no_recomp_ms;
     {
-      DataStore store(static_cast<size_t>(N + 5));
+      DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(static_cast<size_t>(N + 5)));
       auto x0 = store.create_state(data, gretl::vec::initialize_zero_dual);
       auto x = gretl::copy(x0);
       for (int i = 0; i < N; ++i) {
@@ -1625,7 +1626,7 @@ TEST(VectorBottleneck, CheckpointRecomputeVsNoRecompute)
     // budget = 5 (heavy recomputation)
     double recomp_ms;
     {
-      DataStore store(5);
+      DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(5));
       auto x0 = store.create_state(data, gretl::vec::initialize_zero_dual);
       auto x = gretl::copy(x0);
       for (int i = 0; i < N; ++i) {
@@ -1661,7 +1662,7 @@ TEST(VectorBottleneck, GetPrimalCopyCost)
   // Pattern 1: Read-only (inner_product reads but doesn't copy vectors)
   double readonly_ms;
   {
-    DataStore store(static_cast<size_t>(N + 5));
+    DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(static_cast<size_t>(N + 5)));
     auto x0 = store.create_state(data, gretl::vec::initialize_zero_dual);
     auto x = gretl::copy(x0);
     // Chain of inner_products: each reads 2 vectors but writes 1 double
@@ -1683,7 +1684,7 @@ TEST(VectorBottleneck, GetPrimalCopyCost)
   // Pattern 2: Read + copy + write (scale operation copies the vector)
   double readwrite_ms;
   {
-    DataStore store(static_cast<size_t>(N + 5));
+    DataStore store(std::make_unique<gretl::WangCheckpointStrategy>(static_cast<size_t>(N + 5)));
     auto x0 = store.create_state(data, gretl::vec::initialize_zero_dual);
     auto x = gretl::copy(x0);
     for (int i = 0; i < N; ++i) {

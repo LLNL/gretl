@@ -12,6 +12,7 @@
 #include <functional>
 #include "gtest/gtest.h"
 #include "gretl/checkpoint.hpp"
+#include "gretl/wang_checkpoint_strategy.hpp"
 #include "gretl/state.hpp"
 #include "gretl/test_utils.hpp"
 #include "gretl/vector_state.hpp"
@@ -79,7 +80,7 @@ State state_rate_equation(const State& state, const Param& params, [[maybe_unuse
 
 class MeshFixture : public ::testing::Test {
  public:
-  void SetUp() { dataStore = std::make_shared<gretl::DataStore>(20); }
+  void SetUp() { dataStore = std::make_shared<gretl::DataStore>(std::make_unique<gretl::WangCheckpointStrategy>(20)); }
 
   Param::type params_data{1.3, 3.5, 1.1, 0.0};
   State::type state0_data{1.7, 1.1, 0.1};

@@ -55,15 +55,10 @@ struct defaultInitializeZeroDual {
 /// checkpointing state information, and its backpropagated sensitivities
 class DataStore {
  public:
-  /// @brief Constructor with default Wang checkpoint strategy.
-  /// @param maxStates maximum number of states the users is allowing to be allocated for the dynamic checkpointing.
-  /// This does not include persistent states, nor states held in scope by the user.
-  DataStore(size_t maxStates);
-
-  /// @brief Constructor with user-provided checkpoint strategy.
+  /// @brief Constructor requiring a checkpoint strategy.
   /// @param strategy a checkpoint strategy implementation (e.g., WangCheckpointStrategy,
   /// StrummWaltherCheckpointStrategy)
-  DataStore(std::unique_ptr<CheckpointStrategy> strategy);
+  explicit DataStore(std::unique_ptr<CheckpointStrategy> strategy);
 
   /// @brief virtual destructor. Must clear states_ first because StateBase
   /// destructors call try_to_free() which accesses upstreams_ and other members.

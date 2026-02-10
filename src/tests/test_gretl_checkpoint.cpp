@@ -47,29 +47,29 @@ TEST_F(CheckpointFixture, Procedural)
   std::vector<double> states = get_full_state_hist(x0);
   std::vector<double> reverseStates(N + 1);
 
-  gretl::CheckpointManager checkpointManager(S);
+  gretl::WangCheckpointStrategy checkpointStrategy(S);
   std::map<size_t, double> savedCheckpoints;
 
   savedCheckpoints[0] = x0;
 
   bool persistentCheckpoint = true;
-  checkpointManager.add_checkpoint_and_get_index_to_remove(0, persistentCheckpoint);
+  checkpointStrategy.add_checkpoint_and_get_index_to_remove(0, persistentCheckpoint);
   for (size_t i = 0; i < N; ++i) {
     const auto& xPrev = savedCheckpoints[i];
     auto x = advance_solution(xPrev);
-    size_t stepToErase = checkpointManager.add_checkpoint_and_get_index_to_remove(i + 1);
-    if (checkpointManager.valid_checkpoint_index(stepToErase)) {
+    size_t stepToErase = checkpointStrategy.add_checkpoint_and_get_index_to_remove(i + 1);
+    if (gretl::CheckpointStrategy::valid_checkpoint_index(stepToErase)) {
       savedCheckpoints.erase(stepToErase);
     }
     savedCheckpoints[i + 1] = x;
   }
 
   for (size_t i_rev = N; i_rev + 1 > 0; --i_rev) {
-    for (size_t i = checkpointManager.last_checkpoint_step(); i < i_rev; ++i) {
+    for (size_t i = checkpointStrategy.last_checkpoint_step(); i < i_rev; ++i) {
       const auto& xPrev = savedCheckpoints[i];
       auto x = advance_solution(xPrev);
-      size_t stepToErase = checkpointManager.add_checkpoint_and_get_index_to_remove(i + 1);
-      if (checkpointManager.valid_checkpoint_index(stepToErase)) {
+      size_t stepToErase = checkpointStrategy.add_checkpoint_and_get_index_to_remove(i + 1);
+      if (gretl::CheckpointStrategy::valid_checkpoint_index(stepToErase)) {
         savedCheckpoints.erase(stepToErase);
       }
       savedCheckpoints[i + 1] = x;
@@ -77,7 +77,7 @@ TEST_F(CheckpointFixture, Procedural)
 
     reverseStates[i_rev] = savedCheckpoints[i_rev];
 
-    checkpointManager.erase_step(i_rev);
+    checkpointStrategy.erase_step(i_rev);
     savedCheckpoints.erase(i_rev);
   }
 
@@ -106,7 +106,8 @@ TEST_F(CheckpointFixture, Functional)
       [&](size_t n, const double& x) {
         // callback on reverse pass for computing reverse sensitivities
         reverseStates[n] = x;
-      });
+      },
+      std::make_unique<gretl::WangCheckpointStrategy>(S));
 
   advanceStates[N] = xf;
 
@@ -147,7 +148,7 @@ TEST_F(CheckpointFixture, Automated)
   std::vector<double> reverseStates(N + 1);
   std::vector<double> advanceStates(N + 1);
 
-  gretl::DataStore dataStore(S);
+  gretl::DataStore dataStore(std::make_unique<gretl::WangCheckpointStrategy>(S));
   gretl::State<double> X = dataStore.create_state<double, double>(x);
 
   advanceStates[0] = X.get();
@@ -347,4 +348,6 @@ TEST_P(CheckpointStrategyTest, Automated)
 
 INSTANTIATE_TEST_SUITE_P(AllStrategies, CheckpointStrategyTest,
                          ::testing::Values(StrategyType::Wang, StrategyType::StrummWalther),
-                         [](const ::testing::TestParamInfo<StrategyType>& info) { return strategy_name(info.param); });
+                         [](const ::testing::TestParamInfo<StrategyType>& param_info) {
+                           return strategy_name(param_info.param);
+                         });

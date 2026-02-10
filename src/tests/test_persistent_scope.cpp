@@ -10,6 +10,7 @@
 #include "gtest/gtest.h"
 #include "gretl/vector_state.hpp"
 #include "gretl/data_store.hpp"
+#include "gretl/wang_checkpoint_strategy.hpp"
 #include "gretl/test_utils.hpp"
 
 using gretl::print;
@@ -30,7 +31,7 @@ TEST(PersistentScope, InitialStateGoesOutOfScope)
 {
   std::vector<double> dataA = {1.5, 2.5, 3.5};
 
-  gretl::DataStore dataStore(10);
+  gretl::DataStore dataStore(std::make_unique<gretl::WangCheckpointStrategy>(10));
 
   // Create the initial persistent state in a function - it goes out of scope
   create_initial_state(dataStore, dataA);
@@ -73,7 +74,7 @@ TEST(PersistentScope, MultipleStatesGoOutOfScope)
   std::vector<double> data2 = {3.0, 4.0};
   std::vector<double> data3 = {5.0, 6.0};
 
-  gretl::DataStore dataStore(10);
+  gretl::DataStore dataStore(std::make_unique<gretl::WangCheckpointStrategy>(10));
 
   // Create multiple persistent states that go out of scope
   {

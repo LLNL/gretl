@@ -6,17 +6,11 @@
 
 #include <any>
 #include "data_store.hpp"
-#include "wang_checkpoint_strategy.hpp"
 #include "state.hpp"
 #include <iostream>
 #include <iomanip>
 
 namespace gretl {
-
-DataStore::DataStore(size_t maxStates) : checkpointStrategy_(std::make_unique<WangCheckpointStrategy>(maxStates))
-{
-  currentStep_ = 0;
-}
 
 DataStore::DataStore(std::unique_ptr<CheckpointStrategy> strategy) : checkpointStrategy_(std::move(strategy))
 {
