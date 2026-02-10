@@ -110,24 +110,22 @@ TEST(CheckpointCompare, ProceduralComparison)
     size_t budget;
   };
 
-  std::vector<Config> configs = {{10, 3},    {10, 5},    {10, 6},    {10, 8},    {20, 3},    {20, 5},
-                                 {20, 8},    {20, 10},   {50, 3},    {50, 5},    {50, 10},   {50, 20},
-                                 {100, 3},   {100, 5},   {100, 10},  {100, 20},  {200, 5},   {200, 10},
-                                 {200, 20},  {500, 5},   {500, 10},  {500, 20},  {1000, 10}, {1000, 20},
+  std::vector<Config> configs = {{10, 3},    {10, 5},    {10, 6},    {10, 8},     {20, 3},     {20, 5},
+                                 {20, 8},    {20, 10},   {50, 3},    {50, 5},     {50, 10},    {50, 20},
+                                 {100, 3},   {100, 5},   {100, 10},  {100, 20},   {200, 5},    {200, 10},
+                                 {200, 20},  {500, 5},   {500, 10},  {500, 20},   {1000, 10},  {1000, 20},
                                  {1000, 50}, {5000, 10}, {5000, 50}, {5000, 100}, {5000, 200}, {5000, 500}};
 
   std::cout << "\n--- Procedural Checkpoint Algorithm Comparison ---\n";
-  std::cout << std::setw(6) << "N" << std::setw(8) << "Budget" << " | " << std::setw(10) << "Algorithm"
-            << std::setw(10) << "stores" << std::setw(10) << "evictions" << std::setw(12) << "recomps"
-            << std::setw(14) << "ratio(r/N)"
+  std::cout << std::setw(6) << "N" << std::setw(8) << "Budget" << " | " << std::setw(10) << "Algorithm" << std::setw(10)
+            << "stores" << std::setw(10) << "evictions" << std::setw(12) << "recomps" << std::setw(14) << "ratio(r/N)"
             << "\n";
   std::cout << std::string(72, '-') << "\n";
 
   for (const auto& cfg : configs) {
-    auto wang_result =
-        run_procedural_test(std::make_unique<gretl::WangCheckpointStrategy>(cfg.budget), "Wang", cfg.N);
-    auto r2_result =
-        run_procedural_test(std::make_unique<gretl::StrummWaltherCheckpointStrategy>(cfg.budget), "StrummWalther", cfg.N);
+    auto wang_result = run_procedural_test(std::make_unique<gretl::WangCheckpointStrategy>(cfg.budget), "Wang", cfg.N);
+    auto r2_result = run_procedural_test(std::make_unique<gretl::StrummWaltherCheckpointStrategy>(cfg.budget),
+                                         "StrummWalther", cfg.N);
 
     ASSERT_NEAR(wang_result.gradient, r2_result.gradient, 1e-14)
         << "Gradient mismatch at N=" << cfg.N << " budget=" << cfg.budget;
@@ -149,24 +147,21 @@ TEST(CheckpointCompare, DataStoreComparison)
     size_t budget;
   };
 
-  std::vector<Config> configs = {{10, 3},    {10, 5},   {10, 6},   {10, 8},    {20, 3},   {20, 5},
-                                 {20, 8},    {20, 10},  {50, 5},   {50, 10},   {50, 20},  {100, 5},
-                                 {100, 10},  {100, 20}, {200, 5},  {200, 10},  {200, 20}, {500, 10},
-                                 {500, 20},  {1000, 10},{1000, 20},{1000, 50}, {5000, 10},{5000, 50},
-                                 {5000, 100},{5000, 200},{5000, 500}};
+  std::vector<Config> configs = {{10, 3},    {10, 5},    {10, 6},    {10, 8},     {20, 3},     {20, 5},    {20, 8},
+                                 {20, 10},   {50, 5},    {50, 10},   {50, 20},    {100, 5},    {100, 10},  {100, 20},
+                                 {200, 5},   {200, 10},  {200, 20},  {500, 10},   {500, 20},   {1000, 10}, {1000, 20},
+                                 {1000, 50}, {5000, 10}, {5000, 50}, {5000, 100}, {5000, 200}, {5000, 500}};
 
   std::cout << "\n--- DataStore Checkpoint Algorithm Comparison ---\n";
-  std::cout << std::setw(6) << "N" << std::setw(8) << "Budget" << " | " << std::setw(10) << "Algorithm"
-            << std::setw(10) << "stores" << std::setw(10) << "evictions" << std::setw(12) << "recomps"
-            << std::setw(14) << "ratio(r/N)"
+  std::cout << std::setw(6) << "N" << std::setw(8) << "Budget" << " | " << std::setw(10) << "Algorithm" << std::setw(10)
+            << "stores" << std::setw(10) << "evictions" << std::setw(12) << "recomps" << std::setw(14) << "ratio(r/N)"
             << "\n";
   std::cout << std::string(72, '-') << "\n";
 
   for (const auto& cfg : configs) {
-    auto wang_result =
-        run_datastore_test(std::make_unique<gretl::WangCheckpointStrategy>(cfg.budget), "Wang", cfg.N);
-    auto r2_result =
-        run_datastore_test(std::make_unique<gretl::StrummWaltherCheckpointStrategy>(cfg.budget), "StrummWalther", cfg.N);
+    auto wang_result = run_datastore_test(std::make_unique<gretl::WangCheckpointStrategy>(cfg.budget), "Wang", cfg.N);
+    auto r2_result = run_datastore_test(std::make_unique<gretl::StrummWaltherCheckpointStrategy>(cfg.budget),
+                                        "StrummWalther", cfg.N);
 
     double expected_grad = std::pow(1.0 / 3.0, cfg.N);
     ASSERT_NEAR(wang_result.gradient, expected_grad, 1e-14) << "Wang gradient wrong at N=" << cfg.N;

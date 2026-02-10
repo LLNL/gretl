@@ -20,9 +20,9 @@ namespace gretl {
 
 /// @brief Performance counters for comparing checkpoint algorithms.
 struct CheckpointMetrics {
-  size_t stores = 0;         ///< Number of checkpoint store operations
-  size_t evictions = 0;      ///< Number of checkpoint evictions
-  size_t recomputations = 0; ///< Forward re-evaluations triggered during reverse
+  size_t stores = 0;          ///< Number of checkpoint store operations
+  size_t evictions = 0;       ///< Number of checkpoint evictions
+  size_t recomputations = 0;  ///< Forward re-evaluations triggered during reverse
 };
 
 /// @brief Abstract interface for checkpoint eviction strategies.

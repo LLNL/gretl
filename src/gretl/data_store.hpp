@@ -61,7 +61,8 @@ class DataStore {
   DataStore(size_t maxStates);
 
   /// @brief Constructor with user-provided checkpoint strategy.
-  /// @param strategy a checkpoint strategy implementation (e.g., WangCheckpointStrategy, StrummWaltherCheckpointStrategy)
+  /// @param strategy a checkpoint strategy implementation (e.g., WangCheckpointStrategy,
+  /// StrummWaltherCheckpointStrategy)
   DataStore(std::unique_ptr<CheckpointStrategy> strategy);
 
   /// @brief virtual destructor. Must clear states_ first because StateBase

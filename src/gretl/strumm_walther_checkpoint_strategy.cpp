@@ -126,8 +126,7 @@ size_t StrummWaltherCheckpointStrategy::add_checkpoint_and_get_index_to_remove(s
 
   // Insert new slot in sorted order
   Slot newSlot{step, persistent, persistent ? std::numeric_limits<size_t>::max() : newWeight};
-  auto it = std::lower_bound(slots_.begin(), slots_.end(), step,
-                             [](const Slot& s, size_t st) { return s.step < st; });
+  auto it = std::lower_bound(slots_.begin(), slots_.end(), step, [](const Slot& s, size_t st) { return s.step < st; });
   slots_.insert(it, newSlot);
 
   metrics_.stores++;
@@ -169,8 +168,7 @@ bool StrummWaltherCheckpointStrategy::contains_step(size_t stepIndex) const
 
 void StrummWaltherCheckpointStrategy::reset()
 {
-  slots_.erase(std::remove_if(slots_.begin(), slots_.end(), [](const Slot& s) { return !s.persistent; }),
-               slots_.end());
+  slots_.erase(std::remove_if(slots_.begin(), slots_.end(), [](const Slot& s) { return !s.persistent; }), slots_.end());
 }
 
 size_t StrummWaltherCheckpointStrategy::capacity() const { return maxNumSlots_; }

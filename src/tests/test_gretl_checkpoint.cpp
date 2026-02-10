@@ -180,13 +180,19 @@ TEST_F(CheckpointFixture, Automated)
 
 // ---------- Parameterized tests across checkpoint strategies ----------
 
-enum class StrategyType { Wang, StrummWalther };
+enum class StrategyType
+{
+  Wang,
+  StrummWalther
+};
 
 std::string strategy_name(StrategyType t)
 {
   switch (t) {
-    case StrategyType::Wang: return "Wang";
-    case StrategyType::StrummWalther: return "StrummWalther";
+    case StrategyType::Wang:
+      return "Wang";
+    case StrategyType::StrummWalther:
+      return "StrummWalther";
   }
   return "Unknown";
 }
@@ -194,8 +200,10 @@ std::string strategy_name(StrategyType t)
 std::unique_ptr<gretl::CheckpointStrategy> make_strategy(StrategyType t, size_t slots)
 {
   switch (t) {
-    case StrategyType::Wang: return std::make_unique<gretl::WangCheckpointStrategy>(slots);
-    case StrategyType::StrummWalther: return std::make_unique<gretl::StrummWaltherCheckpointStrategy>(slots);
+    case StrategyType::Wang:
+      return std::make_unique<gretl::WangCheckpointStrategy>(slots);
+    case StrategyType::StrummWalther:
+      return std::make_unique<gretl::StrummWaltherCheckpointStrategy>(slots);
   }
   return nullptr;
 }
@@ -339,6 +347,4 @@ TEST_P(CheckpointStrategyTest, Automated)
 
 INSTANTIATE_TEST_SUITE_P(AllStrategies, CheckpointStrategyTest,
                          ::testing::Values(StrategyType::Wang, StrategyType::StrummWalther),
-                         [](const ::testing::TestParamInfo<StrategyType>& info) {
-                           return strategy_name(info.param);
-                         });
+                         [](const ::testing::TestParamInfo<StrategyType>& info) { return strategy_name(info.param); });

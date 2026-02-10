@@ -13,8 +13,7 @@
 
 namespace gretl {
 
-DataStore::DataStore(size_t maxStates)
-    : checkpointStrategy_(std::make_unique<WangCheckpointStrategy>(maxStates))
+DataStore::DataStore(size_t maxStates) : checkpointStrategy_(std::make_unique<WangCheckpointStrategy>(maxStates))
 {
   currentStep_ = 0;
 }
