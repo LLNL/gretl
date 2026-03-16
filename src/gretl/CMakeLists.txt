@@ -34,7 +34,6 @@ set(gretl_headers
     state_base.hpp
     state.hpp
     test_utils.hpp
-    upstream_state.hpp
     vector_state.hpp)
   
 blt_add_library(NAME    gretl
