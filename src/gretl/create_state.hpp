@@ -11,7 +11,6 @@
 #pragma once
 
 #include "data_store.hpp"
-#include "upstream_state.hpp"
 #include <functional>
 
 namespace gretl {

@@ -5,7 +5,6 @@
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 #include "state_base.hpp"
-#include "upstream_state.hpp"
 
 namespace gretl {
 

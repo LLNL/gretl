@@ -11,7 +11,6 @@
 #pragma once
 
 #include <functional>
-#include "upstream_state.hpp"
 #include "state_base.hpp"
 
 namespace gretl {
