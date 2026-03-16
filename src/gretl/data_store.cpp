@@ -4,9 +4,9 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#include <any>
 #include "data_store.hpp"
 #include "state.hpp"
+#include <any>
 #include <iostream>
 #include <iomanip>
 

@@ -13,7 +13,6 @@
 #include <functional>
 #include "upstream_state.hpp"
 #include "state_base.hpp"
-#include "upstream_state.hpp"
 
 namespace gretl {
 
