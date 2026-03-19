@@ -55,6 +55,9 @@ struct defaultInitializeZeroDual {
 /// checkpointing state information, and its backpropagated sensitivities
 class DataStore {
  public:
+  /// @brief Backward-compat constructor using a Wang checkpoint budget.
+  explicit DataStore(size_t checkpoint_budget);
+
   /// @brief Constructor requiring a checkpoint strategy.
   /// @param strategy a checkpoint strategy implementation (e.g., WangCheckpointStrategy,
   /// StrummWaltherCheckpointStrategy)
