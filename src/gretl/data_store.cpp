@@ -7,10 +7,16 @@
 #include <any>
 #include "data_store.hpp"
 #include "state.hpp"
+#include "wang_checkpoint_strategy.hpp"
 #include <iostream>
 #include <iomanip>
 
 namespace gretl {
+
+DataStore::DataStore(size_t checkpoint_budget)
+    : DataStore(std::make_unique<WangCheckpointStrategy>(checkpoint_budget))
+{
+}
 
 DataStore::DataStore(std::unique_ptr<CheckpointStrategy> strategy) : checkpointStrategy_(std::move(strategy))
 {
