@@ -51,9 +51,7 @@ struct StateBase {
     auto oldLifetimeToken = data_->lifetimeToken_;
     Int s = step();
     data_ = oldState.data_;
-    if (!oldLifetimeToken.expired()) {
-      oldDataStore->try_to_free(s);
-    }
+    try_to_free_if_live(oldDataStore, oldLifetimeToken, s);
     return *this;
   }
 
@@ -67,9 +65,7 @@ struct StateBase {
     auto oldLifetimeToken = data_->lifetimeToken_;
     Int s = step();
     data_ = nullptr;
-    if (!oldLifetimeToken.expired()) {
-      oldDataStore->try_to_free(s);
-    }
+    try_to_free_if_live(oldDataStore, oldLifetimeToken, s);
   }
 
   /// @brief get the underlying value
@@ -145,6 +141,13 @@ struct StateBase {
   size_t wild_count() const { return static_cast<size_t>(data_.use_count()) - 1; }
 
  protected:
+  static void try_to_free_if_live(DataStore* dataStore, const std::weak_ptr<void>& lifetimeToken, Int step)
+  {
+    if (!lifetimeToken.expired()) {
+      dataStore->try_to_free(step);
+    }
+  }
+
   DataStore* lock_data_store() const
   {
     if (!data_) {
