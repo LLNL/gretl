@@ -72,13 +72,14 @@ class DataStore {
   {
     // Set flag to prevent try_to_free() from accessing freed memory during destruction
     isDestroying_ = true;
+    lifetimeToken_.reset();
   }
 
   /// @brief create a new state in the graph, store it, return it
   template <typename T, typename D>
   State<T, D> create_state(const T& t, InitializeZeroDual<T, D> initial_zero_dual = [](const T&) { return D{}; })
   {
-    State<T, D> state(this, states_.size(), std::make_shared<std::any>(t), initial_zero_dual);
+    State<T, D> state(this, lifetimeToken_, states_.size(), std::make_shared<std::any>(t), initial_zero_dual);
     add_state(std::make_unique<State<T, D>>(state), {});
     return state;
   }
@@ -116,7 +117,7 @@ class DataStore {
   {
     gretl_assert(!upstreams.empty());
     auto t = std::make_shared<std::any>(T{});
-    State<T, D> state(this, states_.size(), t, initial_zero_dual);
+    State<T, D> state(this, lifetimeToken_, states_.size(), t, initial_zero_dual);
     add_state(std::make_unique<State<T, D>>(state), upstreams);
     return state;
   }
@@ -268,6 +269,7 @@ class DataStore {
 
   /// @brief flag to prevent accessing freed memory during destruction
   bool isDestroying_ = false;
+  std::shared_ptr<void> lifetimeToken_ = std::make_shared<int>(0);
 
   friend struct StateBase;
 

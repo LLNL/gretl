@@ -1023,6 +1023,35 @@ TEST(DestructorTiming, InterleavedCreationAndDestruction)
   EXPECT_NEAR(x0.get_dual(), 24.0, 1e-14);
 }
 
+TEST(DestructorTiming, StateOutlivesSharedOwner)
+{
+  // Regression test for teardown ordering when the last DataStore owner is a
+  // shared_ptr held by another object, but a copied State survives longer.
+  //
+  // Before the lifetime-token fix, the escaped state's destructor would call
+  // try_to_free() through a dangling DataStore* after owner destruction. ASan
+  // reliably reported this as a heap-use-after-free at test teardown.
+  struct SharedOwner {
+    std::shared_ptr<DataStore> store = std::make_shared<DataStore>(std::make_unique<gretl::WangCheckpointStrategy>(3));
+  };
+
+  std::unique_ptr<State<double>> escaped;
+
+  {
+    auto owner = std::make_unique<SharedOwner>();
+    auto x0 = owner->store->create_state<double, double>(2.0);
+    auto y = gretl::axpb(3.0, x0, 1.0);
+
+    EXPECT_NEAR(y.get(), 7.0, 1e-14);
+
+    escaped = std::make_unique<State<double>>(y);
+  }
+
+  // No explicit assertions needed here. The regression is in teardown:
+  // escaped is destroyed after owner/store are already gone.
+  SUCCEED();
+}
+
 // ---------------------------------------------------------------------------
 // Helper: high-resolution timer
 // ---------------------------------------------------------------------------
