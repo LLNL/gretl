@@ -3,83 +3,55 @@
 #include "gretl/state.hpp"
 #include "gretl/create_state.hpp"
 #include "gretl/wang_checkpoint_strategy.hpp"
+#include "gretl/double_state.hpp"
 
 using namespace gretl;
 
-TEST(GraphTracking, StopGradient) {
-    DataStore ds(10);
-    auto s1 = ds.create_state<double, double>(2.0); // tracked, val=2
-    auto s2 = ds.create_state<double, double>(3.0); // tracked, val=3
+TEST(GraphTracking, PicardIterationNoOpVjp) {
+    DataStore ds(std::make_unique<WangCheckpointStrategy>(3));
     
-    // Create an untracked (stop-gradient) state manually using the ds toggle
+    // Parameter p
+    auto p = ds.create_state<double, double>(0.1);
+    
+    // Initial guess x0
+    auto x = ds.create_state<double, double>(1.0);
+    
+    // Iterate 10 times without tracking gradients (stop-gradient nodes)
     ds.set_gradients_enabled(false);
+    for (int i = 0; i < 10; ++i) {
+        x = create_state<double, double>(
+            [](const double&) { return 0.0; },
+            [](const double& x_val, const double& p_val) {
+                // simple iteration: x = x * 0.5 + p
+                return x_val * 0.5 + p_val;
+            },
+            [](const double&, const double&, const double&, double&, double&, const double&) {
+                gretl_assert_msg(false, "VJP should not be called for stop-gradient nodes");
+            },
+            x, p);
+    }
     
-    // This state is added to the graph but its VJP is replaced with a no-op
-    auto s3 = create_state<double, double>(
-        [](const double&) { return 0.0; },
-        [](const double& a, const double& b) { return a * b; },
-        [](const double&, const double&, const double&, double&, double&, const double&) {
-            // This original VJP code would normally fail if we somehow reached it
-            // but we shouldn't reach it because it gets replaced with a no-op.
-            gretl_assert_msg(false, "VJP for stop-gradient node should never be called");
-        },
-        s1, s2);
-    
-    EXPECT_EQ(s3.get(), 6.0);
-    
-    // Re-enable gradients
+    // Re-enable gradients for the final step
     ds.set_gradients_enabled(true);
     
-    // Create a tracked state using s3 as an upstream
-    // s4 = s1 + s3 = 2.0 + 6.0 = 8.0
-    auto s4 = create_state<double, double>(
+    // One final iteration to connect the parameter sensitivity
+    auto x_final = create_state<double, double>(
         [](const double&) { return 0.0; },
-        [](const double& a, const double& b) { return a + b; },
-        [](const double&, const double&, const double&, double& a_bar, double& b_bar, const double& c_bar) {
-            a_bar += c_bar;
-            b_bar += c_bar;
+        [](const double& x_val, const double& p_val) {
+            return x_val * 0.5 + p_val;
         },
-        s1, s3);
+        [](const double& /*x_val*/, const double& /*p_val*/, const double& /*f_val*/, double& dx, double& dp, const double& df) {
+            dx += 0.5 * df;
+            dp += 1.0 * df;
+        },
+        x, p);
         
-    EXPECT_EQ(s4.get(), 8.0);
-    
-    auto obj = set_as_objective(s4); // derivative wrt s4 is 1.0
-    
+    auto obj = set_as_objective(x_final);
     ds.finalize_graph();
     ds.back_prop();
     
-    // derivative of s4 wrt s1 directly is 1.0.
-    // derivative of s4 wrt s3 is 1.0. 
-    // BUT since s3 is stop-gradient, its derivative is NOT passed back to s1 or s2.
-    // Normally, ds4/ds1 = 1 + ds3/ds1 = 1 + s2 = 1 + 3 = 4.0
-    // With stop-gradient on s3, ds4/ds1 = 1.0.
-    
-    EXPECT_EQ(s1.get_dual(), 1.0);
-    
-    // s2 only affects s4 via s3. So its dual should be zero.
-    EXPECT_EQ(s2.get_dual(), 0.0);
-}
-    
-    EXPECT_TRUE(ds.is_tracking());
-    
-    // Create a tracked state using s3 as an upstream
-    // s4 = s1 + s3 = 2.0 + 6.0 = 8.0
-    auto s4 = create_state<double, double>(
-        [](const double&) { return 0.0; },
-        [](const double& a, const double& b) { return a + b; },
-        [](const double&, const double&, const double&, double& a_bar, double& b_bar, const double& c_bar) {
-            a_bar += c_bar;
-            b_bar += c_bar;
-        },
-        s1, s3);
-        
-    EXPECT_EQ(s4.get(), 8.0);
-    
-    auto obj = set_as_objective(s4); // derivative wrt s4 is 1.0
-    
-    ds.finalize_graph();
-    ds.back_prop();
-    
-    EXPECT_EQ(s1.get_dual(), 1.0);
-    EXPECT_EQ(s2.get_dual(), 0.0);
+    // Since x_final = 0.5 * x_10 + p,
+    // dx_final / dp = 1.0 (from the direct dependency of x_final on p)
+    // The dependency through x_10 is killed because x_10 has no-op VJP.
+    EXPECT_EQ(p.get_dual(), 1.0);
 }

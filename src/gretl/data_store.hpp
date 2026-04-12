@@ -254,6 +254,7 @@ class DataStore {
   std::vector<std::vector<Int>> upstreamSteps_;     ///< upstream step dependencies for steps
   std::vector<EvalT> evals_;                        ///< forward evaluation functions for steps
   std::vector<VjpT> vjps_;                          ///< vector-jacobian product functions for steps
+  std::vector<bool> requires_vjp_;                  ///< flag to indicate if state requires VJP evaluation
   std::vector<bool> active_;                        ///< active status for steps
   std::vector<Int> usageCount_;  ///< count how many times a step is used in some downstream still is the scope of the
                                  ///< checkpoint algorithm
