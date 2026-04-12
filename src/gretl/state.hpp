@@ -49,7 +49,7 @@ struct State : public StateBase {
   /// plus-equals into the upstream duals.
   void set_vjp(const std::function<void(UpstreamStates& upstreams, const DownstreamState& downstream)>& v)
   {
-    if (!data_store().is_tracking()) {
+    if (!data_store().gradients_enabled()) {
       data_store().vjps_[step()] = [](UpstreamStates&, const DownstreamState&) {};
     } else {
       data_store().vjps_[step()] = v;
