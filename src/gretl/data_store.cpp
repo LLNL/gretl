@@ -22,6 +22,8 @@ DataStore::DataStore(std::unique_ptr<CheckpointStrategy> strategy) : checkpointS
   currentStep_ = 0;
 }
 
+DataStore::~DataStore() { lifetimeToken_.reset(); }
+
 void DataStore::back_prop()
 {
   stillConstructingGraph_ = false;
@@ -175,6 +177,12 @@ void DataStore::try_to_free(Int step)
       duals_[step] = nullptr;
     }
   }
+}
+
+void DataStore::add_state(std::unique_ptr<StateBase> newState)
+{
+  static const std::vector<StateBase> no_upstreams;
+  add_state(std::move(newState), no_upstreams);
 }
 
 void DataStore::add_state(std::unique_ptr<StateBase> newState, const std::vector<StateBase>& upstreams)
